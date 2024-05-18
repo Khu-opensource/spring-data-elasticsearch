@@ -59,7 +59,7 @@ public class Criteria {
 	private @Nullable Field field;
 	private float boost = Float.NaN;
 	private boolean negating = false;
-
+	private final NestChain  nestChain = new NestChain();
 	private final CriteriaChain criteriaChain = new CriteriaChain();
 	private final Set<CriteriaEntry> queryCriteriaEntries = new LinkedHashSet<>();
 	private final Set<CriteriaEntry> filterCriteriaEntries = new LinkedHashSet<>();
@@ -181,6 +181,10 @@ public class Criteria {
 		return Collections.unmodifiableList(this.criteriaChain);
 	}
 
+	public List<Criteria> getNestChain() {
+		return Collections.unmodifiableList(this.nestChain);
+	}
+
 	/**
 	 * Sets the negating flag
 	 *
@@ -194,7 +198,6 @@ public class Criteria {
 	public boolean isNegating() {
 		return this.negating;
 	}
-
 	/**
 	 * Sets the boost factor.
 	 *
@@ -277,6 +280,28 @@ public class Criteria {
 		Assert.notNull(criterias, "Cannot chain 'null' criterias.");
 
 		this.criteriaChain.addAll(Arrays.asList(criterias));
+		return this;
+	}
+
+	/**
+	 * Chain an array of Nest Criteria to this object
+	 * @param criteria the Criteria to add
+	 * @return this object
+	 */
+	public Criteria nest(Criteria criteria){
+		Assert.notNull(criteria, "Cannot chain 'null' criteria.");
+		this.nestChain.add(criteria);
+		return this;
+	}
+
+	/**
+	 * Chain an array of Nest Criteria to this object
+	 * @param criterias the Criteria to add
+	 * @return this object
+	 */
+	public Criteria nest(Criteria... criterias){
+		Assert.notNull(criterias, "Cannot chain 'null' criterias.");
+		this.nestChain.addAll(Arrays.asList(criterias));
 		return this;
 	}
 
@@ -913,6 +938,7 @@ public class Criteria {
 	 * @since 4.1
 	 */
 	public static class CriteriaChain extends LinkedList<Criteria> {}
+	public static class NestChain extends LinkedList<Criteria>{}
 
 	/**
 	 * Operator to join the entries of the criteria chain
