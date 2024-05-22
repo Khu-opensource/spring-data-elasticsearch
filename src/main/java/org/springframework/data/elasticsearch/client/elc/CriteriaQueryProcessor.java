@@ -198,6 +198,8 @@ class CriteriaQueryProcessor {
 		if (field == null || criteria.getNestChain().isEmpty())
 			return null;
 
+		Boolean isNegating = false;
+		Boolean isOr = false;
 		String fieldName = field.getName();
 		Assert.notNull(fieldName, "Unknown field " + fieldName);
 
@@ -206,6 +208,8 @@ class CriteriaQueryProcessor {
 			Iterator<Criteria.CriteriaEntry> iterator = nestCriteria.getQueryCriteriaEntries().iterator();
 			Field newField = nestCriteria.getField();
 			nestCriteriaEntries.put(iterator.next(), newField);
+			if(nestCriteria.isNegating()) isNegating = true;
+			if(nestCriteria.isOr()) isOr = true;
 		}
 		Float boost = Float.isNaN(criteria.getBoost()) ? null : criteria.getBoost();
 		Query.Builder queryBuilder;
@@ -233,7 +237,7 @@ class CriteriaQueryProcessor {
 					.scoreMode(ChildScoreMode.Avg));
 		}
 
-		if (criteria.isNegating() && criteria.isOr()) {
+		if (isNegating || isOr) {
 			final Query query = queryBuilder.build();
 			queryBuilder = new Query.Builder();
 			queryBuilder.bool(mnqb -> mnqb.mustNot(query));
