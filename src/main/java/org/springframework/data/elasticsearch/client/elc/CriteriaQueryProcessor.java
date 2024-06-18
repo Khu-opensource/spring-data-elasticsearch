@@ -207,7 +207,9 @@ class CriteriaQueryProcessor {
 		for(Criteria nestCriteria: criteria.getNestChain()){
 			Iterator<Criteria.CriteriaEntry> iterator = nestCriteria.getQueryCriteriaEntries().iterator();
 			Field newField = nestCriteria.getField();
-			nestCriteriaEntries.put(iterator.next(), newField);
+			while(iterator.hasNext()){
+				nestCriteriaEntries.put(iterator.next(), newField);
+			}
 			if(nestCriteria.isNegating()) isNegating = true;
 			if(nestCriteria.isOr()) isOr = true;
 		}

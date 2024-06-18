@@ -339,6 +339,7 @@ public class Criteria {
 		Assert.notNull(criteria.getField(), "Cannot chain Criteria with no field");
 
 		Criteria orCriteria = new OrCriteria(this.criteriaChain, criteria.getField());
+		orCriteria.nestChain.addAll(criteria.getNestChain());
 		orCriteria.queryCriteriaEntries.addAll(criteria.queryCriteriaEntries);
 		orCriteria.filterCriteriaEntries.addAll(criteria.filterCriteriaEntries);
 		orCriteria.subCriteria.addAll(criteria.subCriteria);
