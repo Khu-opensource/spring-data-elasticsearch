@@ -24,9 +24,7 @@ import co.elastic.clients.elasticsearch._types.query_dsl.Operator;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import co.elastic.clients.json.JsonData;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 import org.springframework.data.elasticsearch.annotations.FieldType;
 import org.springframework.data.elasticsearch.core.query.Criteria;
@@ -63,8 +61,12 @@ class CriteriaQueryProcessor {
 		boolean negateFirstQuery = false;
 
 		for (Criteria chainedCriteria : criteria.getCriteriaChain()) {
-			Query queryFragment = queryForEntries(chainedCriteria);
-
+			Query queryFragment;
+			if(!chainedCriteria.getNestChain().isEmpty()){
+				queryFragment = queryForNestEntries(chainedCriteria);
+			} else {
+				queryFragment = queryForEntries(chainedCriteria);
+			}
 			if (queryFragment != null) {
 
 				if (firstQuery == null) {
@@ -182,6 +184,70 @@ class CriteriaQueryProcessor {
 
 		return queryBuilder.build();
 	}
+
+	/**
+	 * 하나의 Nest Query를 생성하기 위한 용도
+	 * @param criteria
+	 * @return Query
+	 */
+	@Nullable
+	private static Query queryForNestEntries(Criteria criteria) {
+
+		Field field = criteria.getField();
+
+		if (field == null || criteria.getNestChain().isEmpty())
+			return null;
+
+		Boolean isNegating = false;
+		Boolean isOr = false;
+		String fieldName = field.getName();
+		Assert.notNull(fieldName, "Unknown field " + fieldName);
+
+		Map<Criteria.CriteriaEntry, Field> nestCriteriaEntries = new HashMap<>();
+		for(Criteria nestCriteria: criteria.getNestChain()){
+			Iterator<Criteria.CriteriaEntry> iterator = nestCriteria.getQueryCriteriaEntries().iterator();
+			Field newField = nestCriteria.getField();
+			while(iterator.hasNext()){
+				nestCriteriaEntries.put(iterator.next(), newField);
+			}
+			if(nestCriteria.isNegating()) isNegating = true;
+			if(nestCriteria.isOr()) isOr = true;
+		}
+		Float boost = Float.isNaN(criteria.getBoost()) ? null : criteria.getBoost();
+		Query.Builder queryBuilder;
+
+		Iterator<Map.Entry<Criteria.CriteriaEntry, Field>> it = nestCriteriaEntries.entrySet().iterator();
+		queryBuilder = new Query.Builder();
+		queryBuilder.bool(boolQueryBuilder -> {
+			while(it.hasNext()){
+				Map.Entry<Criteria.CriteriaEntry, Field> map = it.next();
+				Criteria.CriteriaEntry entry = map.getKey();
+				Field value = map.getValue();
+				boolQueryBuilder.must(queryFor(entry,value, null).build());
+			}
+			boolQueryBuilder.boost(boost);
+			return boolQueryBuilder;
+		});
+
+
+		if (hasText(field.getName())) {
+			final Query query = queryBuilder.build();
+			queryBuilder = new Query.Builder();
+			queryBuilder.nested(nqb -> nqb //
+					.path(field.getName()) //
+					.query(query) //
+					.scoreMode(ChildScoreMode.Avg));
+		}
+
+		if (isNegating || isOr) {
+			final Query query = queryBuilder.build();
+			queryBuilder = new Query.Builder();
+			queryBuilder.bool(mnqb -> mnqb.mustNot(query));
+		}
+
+		return queryBuilder.build();
+	}
+
 
 	private static Query.Builder queryFor(Criteria.CriteriaEntry entry, Field field, @Nullable Float boost) {
 
